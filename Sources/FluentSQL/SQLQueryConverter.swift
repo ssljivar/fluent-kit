@@ -126,9 +126,13 @@ public struct SQLQueryConverter {
         
         // 5. Provide the list of columns and the sets of inserted values to the actual query, always specifying in the
         //    same order as the original field list.
-        insert.columns = usedKeys.map { SQLColumn(self.key($0)) }
-        insert.values = dictionaries.map { values in usedKeys.compactMap { values[$0] } }
+        // 🔧 Deduplicate usedKeys before inserting into SQLColumn list
+        var seen = Set<FieldKey>()
+        let uniqueKeys = usedKeys.filter { seen.insert($0).inserted }
 
+        insert.columns = uniqueKeys.map { SQLColumn(self.key($0)) }
+        insert.values = dictionaries.map { values in uniqueKeys.compactMap { values[$0] } }
+        
         return insert
     }
     
