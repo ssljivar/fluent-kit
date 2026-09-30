@@ -24,4 +24,20 @@ let planets = try await Planet.query(on: database)
     .all()
 ```
 
+## Fork-specific changes
+
+This repository is based on upstream FluentKit and currently includes two intentional changes:
+
+- **Duplicate insert columns:** `SQLQueryConverter` deduplicates insert column keys and their corresponding values before generating SQL. This works around a Fluent regression that caused some generated inserts to contain duplicate column names and fail at the database.
+- **Fluent row locking:** Queries support `forUpdate()` and `forShare()`. Lock intent is carried by `DatabaseQuery` and translated by `SQLQueryConverter` into SQLKit's dialect-specific locking clauses. For example:
+
+  ```swift
+  Model.query(on: db)
+      .filter(...)
+      .forUpdate()
+      .first()
+  ```
+
+  Row locks are transaction-scoped. Locking behavior depends on the database dialect; unsupported dialects may omit the locking clause.
+
 For more information, see the [Fluent documentation](https://docs.vapor.codes/fluent/overview/).

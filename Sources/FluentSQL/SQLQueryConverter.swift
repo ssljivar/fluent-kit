@@ -87,6 +87,12 @@ public struct SQLQueryConverter {
                 fatalError("Unsupported offset \(any)")
             }
         }
+        select.lockingClause = query.lock.map { lock in
+            switch lock {
+            case .update: SQLLockingClause.update
+            case .share: SQLLockingClause.share
+            }
+        }
         return select
     }
     

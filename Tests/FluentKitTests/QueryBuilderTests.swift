@@ -199,6 +199,72 @@ final class QueryBuilderTests: XCTestCase {
         XCTAssertEqual(db.sqlSerializers.count, 1)
         XCTAssertEqual(db.sqlSerializers.first?.sql, #"SELECT "planets"."id" AS "planets_id", "planets"."name" AS "planets_name", "planets"."star_id" AS "planets_star_id", "planets"."possible_star_id" AS "planets_possible_star_id", "planets"."deleted_at" AS "planets_deleted_at", "stars"."id" AS "stars_id", "stars"."name" AS "stars_name", "stars"."galaxy_id" AS "stars_galaxy_id", "stars"."deleted_at" AS "stars_deleted_at" FROM "planets" LEFT JOIN "stars" ON "stars"."id" = "planets"."id" AND "stars"."name" = 'Sol' WHERE ("planets"."deleted_at" IS NULL OR "planets"."deleted_at" > $1) AND ("stars"."deleted_at" IS NULL OR "stars"."deleted_at" > $2)"#)
     }
+
+    func testQueryWithoutLockingClause() throws {
+        let db = DummyDatabaseForTestSQLSerializer()
+
+        _ = try Planet.query(on: db)
+            .filter(\.$name == "Earth")
+            .all().wait()
+
+        let sql = try XCTUnwrap(db.sqlSerializers.first?.sql)
+        XCTAssertTrue(sql.contains(#""planets"."name" = $1"#))
+        XCTAssertFalse(sql.contains("FOR UPDATE"))
+        XCTAssertFalse(sql.contains("FOR SHARE"))
+    }
+
+    func testForUpdateLockingClause() throws {
+        let db = DummyDatabaseForTestSQLSerializer()
+
+        _ = try Planet.query(on: db)
+            .filter(\.$name == "Earth")
+            .forUpdate()
+            .all().wait()
+
+        let sql = try XCTUnwrap(db.sqlSerializers.first?.sql)
+        XCTAssertTrue(sql.contains(#""planets"."name" = $1"#))
+        XCTAssertTrue(sql.hasSuffix(" FOR UPDATE"))
+    }
+
+    func testForShareLockingClause() throws {
+        let db = DummyDatabaseForTestSQLSerializer()
+
+        _ = try Planet.query(on: db)
+            .filter(\.$name == "Earth")
+            .forShare()
+            .all().wait()
+
+        let sql = try XCTUnwrap(db.sqlSerializers.first?.sql)
+        XCTAssertTrue(sql.contains(#""planets"."name" = $1"#))
+        XCTAssertTrue(sql.hasSuffix(" FOR SHARE"))
+    }
+
+    func testLockingClausesOmittedByUnsupportedDialect() throws {
+        let baselineDB = DummyDatabaseForTestSQLSerializer()
+        _ = try Planet.query(on: baselineDB)
+            .filter(\.$name == "Earth")
+            .all().wait()
+        let baselineSQL = try XCTUnwrap(baselineDB.sqlSerializers.first?.sql)
+
+        let db = DummyDatabaseForTestSQLSerializer(supportsLocking: false)
+
+        _ = try Planet.query(on: db)
+            .filter(\.$name == "Earth")
+            .forUpdate()
+            .all().wait()
+        _ = try Planet.query(on: db)
+            .filter(\.$name == "Earth")
+            .forShare()
+            .all().wait()
+
+        XCTAssertEqual(db.sqlSerializers.count, 2)
+        for serializer in db.sqlSerializers {
+            XCTAssertEqual(serializer.sql, baselineSQL)
+            XCTAssertTrue(serializer.sql.contains(#""planets"."name" = $1"#))
+            XCTAssertFalse(serializer.sql.contains("FOR UPDATE"))
+            XCTAssertFalse(serializer.sql.contains("FOR SHARE"))
+        }
+    }
     
     func testComplexJoinOperators() throws {
         let db = DummyDatabaseForTestSQLSerializer()

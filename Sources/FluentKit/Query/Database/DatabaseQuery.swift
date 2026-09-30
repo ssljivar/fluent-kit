@@ -5,6 +5,7 @@ public struct DatabaseQuery: Sendable {
     public var isUnique: Bool
     public var fields: [Field]
     public var action: Action
+    public var lock: Lock?
     public var filters: [Filter]
     public var input: [Value]
     public var joins: [Join]
@@ -18,6 +19,7 @@ public struct DatabaseQuery: Sendable {
         self.isUnique = false
         self.fields = []
         self.action = .read
+        self.lock = nil
         self.filters = []
         self.input = []
         self.joins = []
@@ -36,6 +38,9 @@ extension DatabaseQuery: CustomStringConvertible {
         ]
         if self.isUnique {
             parts.append("unique")
+        }
+        if let lock = self.lock {
+            parts.append("lock=\(lock)")
         }
         if !self.fields.isEmpty {
             parts.append("fields=\(self.fields)")
@@ -66,6 +71,9 @@ extension DatabaseQuery: CustomStringConvertible {
             "action": "\(self.action)",
             "schema": "\(self.space.map { "\($0)." } ?? "")\(self.schema)",
         ]
+        if let lock = self.lock {
+            result["lock"] = .stringConvertible(lock)
+        }
         switch self.action {
         case .create, .update, .custom: result["input"] = .array(self.input.map(\.describedByLoggingMetadata))
         default: break

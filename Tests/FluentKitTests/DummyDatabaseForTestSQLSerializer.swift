@@ -40,7 +40,9 @@ final class DummyDatabaseForTestSQLSerializer: Database, SQLDatabase {
         var middleware: [any AnyModelMiddleware] = []
     }
 
-    var dialect: any SQLDialect { DummyDatabaseDialect() }
+    var dialect: any SQLDialect { DummyDatabaseDialect(supportsLocking: self.supportsLocking) }
+
+    private let supportsLocking: Bool
 
     let context: DatabaseContext
 
@@ -56,7 +58,8 @@ final class DummyDatabaseForTestSQLSerializer: Database, SQLDatabase {
         set { self._fakedRows.withLockedValue { $0 = newValue } }
     }
 
-    init() {
+    init(supportsLocking: Bool = true) {
+        self.supportsLocking = supportsLocking
         self.context = .init(
             configuration: Configuration(),
             logger: .init(label: "test"),
@@ -119,6 +122,8 @@ final class DummyDatabaseForTestSQLSerializer: Database, SQLDatabase {
 
 // Copy from PostgresDialect
 struct DummyDatabaseDialect: SQLDialect {
+    var supportsLocking = true
+
     var supportsAutoIncrement: Bool {
         true
     }
@@ -152,11 +157,11 @@ struct DummyDatabaseDialect: SQLDialect {
     }
     
     var sharedSelectLockExpression: (any SQLExpression)? {
-        SQLRaw("FOR SHARE")
+        self.supportsLocking ? SQLRaw("FOR SHARE") : nil
     }
 
     var exclusiveSelectLockExpression: (any SQLExpression)? {
-        SQLRaw("FOR UPDATE")
+        self.supportsLocking ? SQLRaw("FOR UPDATE") : nil
     }
 }
 
