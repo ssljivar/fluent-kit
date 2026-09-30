@@ -1,24 +1,22 @@
 extension QueryBuilder {
     // MARK: Locking
 
-    /// Requests an update lock for rows returned by this query.
+    /// Acquires an update lock on the selected rows until the transaction ends.
     ///
-    /// Locking support depends on the database dialect. Unsupported dialects may omit the lock,
-    /// and row locks are meaningful when this query executes within a database transaction.
-    /// This is intended for row-returning queries; database-specific restrictions, such as
-    /// locking aggregate queries, still apply.
+    /// Use when the transaction reads a row to decide whether to update that same row.
+    /// Conflicting row locks and mutations wait until the transaction ends. This clause is
+    /// emitted only when the SQL dialect supports it.
     @discardableResult
     public func forUpdate() -> Self {
         self.query.lock = .update
         return self
     }
 
-    /// Requests a shared lock for rows returned by this query.
+    /// Acquires a shared lock on the selected rows until the transaction ends.
     ///
-    /// Locking support depends on the database dialect. Unsupported dialects may omit the lock,
-    /// and row locks are meaningful when this query executes within a database transaction.
-    /// This is intended for row-returning queries; database-specific restrictions, such as
-    /// locking aggregate queries, still apply.
+    /// Use when the transaction relies on these rows remaining unchanged while it performs other
+    /// work. Other shared locks may coexist while conflicting mutations wait until the transaction
+    /// ends. This clause is emitted only when the SQL dialect supports it.
     @discardableResult
     public func forShare() -> Self {
         self.query.lock = .share
